@@ -537,6 +537,7 @@ class PianoKeyboardWidget(QWidget):
     """
 
     note_Triggered = pyqtSignal(int)  # Emite el número MIDI (48..79) al pulsar una tecla
+    note_Released = pyqtSignal(int)   # Emite el número MIDI al soltar la tecla (sustain/release)
 
     # Rango MIDI: 48 (C3) .. 79 (G5) -> 19 teclas blancas y 13 negras
     START_MIDI = 48
@@ -624,6 +625,8 @@ class PianoKeyboardWidget(QWidget):
             self.update()
 
     def leaveEvent(self, event) -> None:  # noqa: N802
+        if self.pressed_midi is not None:
+            self.note_Released.emit(self.pressed_midi)
         self.hover_midi = None
         self.pressed_midi = None
         self.update()
@@ -637,6 +640,8 @@ class PianoKeyboardWidget(QWidget):
                 self.note_Triggered.emit(m)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if self.pressed_midi is not None:
+            self.note_Released.emit(self.pressed_midi)
         self.pressed_midi = None
         self.update()
 
@@ -755,6 +760,7 @@ class GuitarFretboardWidget(QWidget):
     """
 
     fret_Triggered = pyqtSignal(int, int, int)  # (string_num 1..6, fret 0..12, midi_note)
+    fret_Released = pyqtSignal(int, int, int)
 
     NUM_FRETS = 12
 
@@ -797,8 +803,17 @@ class GuitarFretboardWidget(QWidget):
         s_num, _, open_midi, _ = GUITAR_OPEN_STRINGS[s_idx]
         midi_val = open_midi + fret
         self.active_position = (s_num, fret)
+        self._last_fret_midi = (s_num, fret, midi_val)
         self.update()
         self.fret_Triggered.emit(s_num, fret, midi_val)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if hasattr(self, "_last_fret_midi") and self._last_fret_midi:
+            s_num, fret, midi_val = self._last_fret_midi
+            self.fret_Released.emit(s_num, fret, midi_val)
+            self._last_fret_midi = None
+        self.active_position = None
+        self.update()
 
     def paintEvent(self, event) -> None:  # noqa: N802
         p = QPainter(self)
@@ -1009,7 +1024,7 @@ class CircleOfFifthsDialog(QDialog):
         self.lang = lang
         self.on_play_chord = on_play_chord
         self.setWindowTitle(
-            "🧭 Círculo de Quintas Interactivo" if lang == "es" else "🧭 Interactive Circle of Fifths"
+            "Círculo de Quintas Interactivo" if lang == "es" else "Interactive Circle of Fifths"
         )
         self.setMinimumSize(460, 510)
         self.setStyleSheet(f"QDialog {{ background-color: {theme['bg_panel']}; color: {theme['text_primary']}; }}")
@@ -1071,7 +1086,7 @@ class SessionReportDialog(QDialog):
     def __init__(self, curriculum, theme: dict[str, str], lang: str = "es", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(
-            "📜 Informe Diagnóstico de Conservatorio" if lang == "es" else "📜 Conservatory Diagnostic Report"
+            "Informe Diagnóstico de Conservatorio" if lang == "es" else "Conservatory Diagnostic Report"
         )
         self.setMinimumSize(520, 440)
         self.setStyleSheet(f"QDialog {{ background-color: {theme['bg_panel']}; color: {theme['text_primary']}; }}")
@@ -1095,14 +1110,14 @@ class SessionReportDialog(QDialog):
             f"• Ejercicios respondidos / Total Answered : {curriculum.total_answered}",
             f"• Aciertos / Correct Answers              : {curriculum.total_correct}",
             f"• Precisión Global / Accuracy             : {curriculum.accuracy_pct:.1f}%",
-            f"• Mejor Racha / Best Streak               : {curriculum.best_streak} 🔥",
+            f"• Mejor Racha / Best Streak               : {curriculum.best_streak}",
             f"• Tiempo Medio de Lectura / Avg Speed     : {curriculum.avg_response_ms} ms",
             f"• Notas/Elementos por Reforzar            : {weak_str}",
             "───────────────────────────────────────────────────────────",
             "HISTORIAL RECIENTE / RECENT LOG:",
         ]
         for item in curriculum.history_log[-15:]:
-            mark = "✓" if item["result"] == "OK" else "✗"
+            mark = "OK" if item["result"] == "OK" else "X"
             report_lines.append(f"  [{mark}] ({item['mode'].upper()}) {item['target']}  —  {item['ms']} ms")
 
         self.text_box = QTextEdit()
@@ -1116,7 +1131,7 @@ class SessionReportDialog(QDialog):
         lay.addWidget(self.text_box, stretch=1)
 
         btn_row = QHBoxLayout()
-        btn_copy = QPushButton("📋 Copiar Informe" if lang == "es" else "📋 Copy Report")
+        btn_copy = QPushButton("Copiar Informe" if lang == "es" else "Copy Report")
         btn_copy.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_copy.setStyleSheet(
             f"background-color: {theme['accent']}; color: {theme['accent_text']}; "

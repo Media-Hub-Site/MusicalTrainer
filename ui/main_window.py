@@ -59,13 +59,13 @@ class MusicalTrainerWindow(QMainWindow):
     """Estudio y Conservatorio Interactivo de Lectura de Partituras, Teoría y Oído Musical."""
 
     DISCIPLINES: list[tuple[str, str, str, str]] = [
-        ("notes",     "🎼", "Partitura (Notas)",     "Staff Sight-Reading"),
-        ("keys",      "🔑", "Armaduras",             "Key Signatures"),
-        ("intervals", "📏", "Intervalos",            "Intervals"),
-        ("chords",    "🎹", "Tríadas y Acordes",     "Triads & Chords"),
-        ("fretboard", "🎸", "Diapasón y Teclado",    "Fretboard & Keys"),
-        ("ear",       "👂", "Oído Musical",          "Ear Training"),
-        ("sandbox",   "🧪", "Explorador Libre",      "Theory Sandbox"),
+        ("notes",     "Partitura (Notas)",     "Staff Sight-Reading"),
+        ("keys",      "Armaduras",             "Key Signatures"),
+        ("intervals", "Intervalos",            "Intervals"),
+        ("chords",    "Tríadas y Acordes",     "Triads & Chords"),
+        ("fretboard", "Diapasón y Teclado",    "Fretboard & Keys"),
+        ("ear",       "Oído Musical",          "Ear Training"),
+        ("sandbox",   "Explorador Libre",      "Theory Sandbox"),
     ]
 
     # Mapeo de teclas físicas de PC a notas MIDI del piano (C4=60 a E5=76)
@@ -158,7 +158,7 @@ class MusicalTrainerWindow(QMainWindow):
 
         title_col = QVBoxLayout()
         title_col.setSpacing(1)
-        self.lbl_brand = QLabel("🎼  MUSICAL TRAINER")
+        self.lbl_brand = QLabel("MUSICAL TRAINER")
         self.lbl_brand.setFont(QFont("Georgia", 13, QFont.Weight.Bold))
         self.lbl_sub = QLabel()
         self.lbl_sub.setFont(QFont("Segoe UI", 9))
@@ -168,22 +168,22 @@ class MusicalTrainerWindow(QMainWindow):
 
         # Selector de Notación (Solfeo / Cifrado / Dual)
         self.combo_notation = QComboBox()
-        self.combo_notation.addItem("🎵 Dual: Do · C", "dual")
-        self.combo_notation.addItem("🎼 Solfeo: Do, Re, Mi", "solfege")
-        self.combo_notation.addItem("🔤 Cifrado: C, D, E", "cipher")
+        self.combo_notation.addItem("Dual: Do · C", "dual")
+        self.combo_notation.addItem("Solfeo: Do, Re, Mi", "solfege")
+        self.combo_notation.addItem("Cifrado: C, D, E", "cipher")
         self.combo_notation.currentIndexChanged.connect(self._on_notation_changed)
         mh_lay.addWidget(self.combo_notation)
 
         # Selector de Timbre Acústico
         self.combo_timbre = QComboBox()
-        self.combo_timbre.addItem("🎹 Piano de Cola", "piano")
-        self.combo_timbre.addItem("🔔 Rhodes Vintage", "rhodes")
-        self.combo_timbre.addItem("🎸 Guitarra / Arpa", "guitar")
+        self.combo_timbre.addItem("Piano de Cola", "piano")
+        self.combo_timbre.addItem("Rhodes Vintage", "rhodes")
+        self.combo_timbre.addItem("Guitarra / Cuerdas", "guitar")
         self.combo_timbre.currentIndexChanged.connect(self._on_timbre_changed)
         mh_lay.addWidget(self.combo_timbre)
 
         # Metrónomo Acústico Integrado
-        self.btn_metro = QPushButton("⏱ Metrónomo")
+        self.btn_metro = QPushButton("Metrónomo")
         self.btn_metro.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_metro.clicked.connect(self._toggle_metronome)
         mh_lay.addWidget(self.btn_metro)
@@ -203,8 +203,8 @@ class MusicalTrainerWindow(QMainWindow):
         mh_lay.addWidget(self.combo_theme)
 
         # Botón Sonido y Botón Idioma
-        self.btn_sound = QPushButton("🔊")
-        self.btn_sound.setFixedWidth(38)
+        self.btn_sound = QPushButton("Audio")
+        self.btn_sound.setFixedWidth(54)
         self.btn_sound.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_sound.clicked.connect(self._toggle_sound)
         mh_lay.addWidget(self.btn_sound)
@@ -224,8 +224,8 @@ class MusicalTrainerWindow(QMainWindow):
         rail_lay.setContentsMargins(10, 7, 10, 7)
         rail_lay.setSpacing(6)
 
-        for mode_id, icon, name_es, _ in self.DISCIPLINES:
-            btn = QPushButton(f"{icon}  {name_es}")
+        for mode_id, name_es, _ in self.DISCIPLINES:
+            btn = QPushButton(name_es)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setMinimumHeight(34)
             btn.clicked.connect(lambda checked=False, m=mode_id: self._switch_discipline(m))
@@ -249,11 +249,11 @@ class MusicalTrainerWindow(QMainWindow):
         ctrl_row.addWidget(self.lbl_clef)
 
         self.combo_clef = QComboBox()
-        self.combo_clef.addItem("🎼 Clave de Sol (2ª)", "treble")
-        self.combo_clef.addItem("🎻 Clave de Fa (4ª)", "bass")
-        self.combo_clef.addItem("🎻 Clave de Do 3ª (Alto)", "alto")
-        self.combo_clef.addItem("🎻 Clave de Do 4ª (Tenor)", "tenor")
-        self.combo_clef.addItem("🎹 Gran Pentagrama (Sol+Fa)", "grand")
+        self.combo_clef.addItem("Clave de Sol (2ª)", "treble")
+        self.combo_clef.addItem("Clave de Fa (4ª)", "bass")
+        self.combo_clef.addItem("Clave de Do 3ª (Alto)", "alto")
+        self.combo_clef.addItem("Clave de Do 4ª (Tenor)", "tenor")
+        self.combo_clef.addItem("Gran Pentagrama (Sol+Fa)", "grand")
         self.combo_clef.currentIndexChanged.connect(self._on_clef_changed)
         ctrl_row.addWidget(self.combo_clef)
 
@@ -272,32 +272,32 @@ class MusicalTrainerWindow(QMainWindow):
         self.combo_submode.currentIndexChanged.connect(self._on_submode_changed)
         ctrl_row.addWidget(self.combo_submode)
 
-        self.btn_guides = QPushButton("👁 Guías en Pentagrama: Sí")
+        self.btn_guides = QPushButton("Guías en Pentagrama: Sí")
         self.btn_guides.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_guides.clicked.connect(self._toggle_guides)
         ctrl_row.addWidget(self.btn_guides)
 
-        self.btn_hint = QPushButton("💡 Pista")
+        self.btn_hint = QPushButton("Pista")
         self.btn_hint.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_hint.clicked.connect(self._show_hint)
         ctrl_row.addWidget(self.btn_hint)
 
-        self.btn_replay = QPushButton("🔊 Escuchar [Espacio]")
+        self.btn_replay = QPushButton("Escuchar [Espacio]")
         self.btn_replay.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_replay.clicked.connect(self._replay_current_audio)
         ctrl_row.addWidget(self.btn_replay)
 
-        self.btn_blitz = QPushButton("⚡ Reto 60s")
+        self.btn_blitz = QPushButton("Reto 60s")
         self.btn_blitz.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_blitz.clicked.connect(self._toggle_blitz_mode)
         ctrl_row.addWidget(self.btn_blitz)
 
-        self.btn_fifths = QPushButton("🧭 Quintas")
+        self.btn_fifths = QPushButton("Quintas")
         self.btn_fifths.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_fifths.clicked.connect(self._open_circle_of_fifths)
         ctrl_row.addWidget(self.btn_fifths)
 
-        self.btn_report = QPushButton("📜 Informe")
+        self.btn_report = QPushButton("Informe")
         self.btn_report.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_report.clicked.connect(self._open_session_report)
         ctrl_row.addWidget(self.btn_report)
@@ -320,7 +320,7 @@ class MusicalTrainerWindow(QMainWindow):
 
         stats_row.addStretch(1)
 
-        self.btn_reset_stats = QPushButton("↺ Reiniciar Sesión")
+        self.btn_reset_stats = QPushButton("Reiniciar Sesión")
         self.btn_reset_stats.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reset_stats.clicked.connect(self._reset_session_stats)
         stats_row.addWidget(self.btn_reset_stats)
@@ -372,17 +372,17 @@ class MusicalTrainerWindow(QMainWindow):
         dock_hdr.addWidget(self.lbl_dock_title)
         dock_hdr.addStretch(1)
 
-        self.btn_view_piano = QPushButton("🎹 Teclado de Piano (C3–G5)")
+        self.btn_view_piano = QPushButton("Teclado de Piano (C3–G5)")
         self.btn_view_piano.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_view_piano.clicked.connect(lambda: self._switch_instrument_view(0))
         dock_hdr.addWidget(self.btn_view_piano)
 
-        self.btn_view_guitar = QPushButton("🎸 Diapasón de Guitarra (Trastes 0–12)")
+        self.btn_view_guitar = QPushButton("Diapasón de Guitarra (Trastes 0–12)")
         self.btn_view_guitar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_view_guitar.clicked.connect(lambda: self._switch_instrument_view(1))
         dock_hdr.addWidget(self.btn_view_guitar)
 
-        self.btn_inst_helpers = QPushButton("🔤 Nombres en Teclas: Sí")
+        self.btn_inst_helpers = QPushButton("Nombres en Teclas: Sí")
         self.btn_inst_helpers.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_inst_helpers.clicked.connect(self._toggle_instrument_helpers)
         dock_hdr.addWidget(self.btn_inst_helpers)
@@ -392,10 +392,12 @@ class MusicalTrainerWindow(QMainWindow):
         self.inst_stack = QStackedWidget()
         self.piano_widget = PianoKeyboardWidget(self)
         self.piano_widget.note_Triggered.connect(self._on_piano_key_pressed)
+        self.piano_widget.note_Released.connect(self._on_piano_key_released)
         self.inst_stack.addWidget(self.piano_widget)
 
         self.fretboard_widget = GuitarFretboardWidget(self)
         self.fretboard_widget.fret_Triggered.connect(self._on_guitar_fret_pressed)
+        self.fretboard_widget.fret_Released.connect(self._on_guitar_fret_released)
         self.inst_stack.addWidget(self.fretboard_widget)
 
         dock_lay.addWidget(self.inst_stack)
@@ -482,7 +484,7 @@ class MusicalTrainerWindow(QMainWindow):
         es = (self.lang == "es")
         self.score_canvas.lang = self.lang
         self.btn_lang.setText("ES" if es else "EN")
-        self.btn_sound.setText("🔊" if self.audio.enabled else "🔇")
+        self.btn_sound.setText("Audio: On" if self.audio.enabled else "Audio: Off")
 
         self.lbl_sub.setText(
             "Conservatorio interactivo de partitura, teoría y oído"
@@ -490,33 +492,33 @@ class MusicalTrainerWindow(QMainWindow):
             else "Interactive conservatory for score, theory & ear"
         )
 
-        for mode_id, icon, name_es, name_en in self.DISCIPLINES:
-            self._discipline_btns[mode_id].setText(f"{icon}  {name_es if es else name_en}")
+        for mode_id, name_es, name_en in self.DISCIPLINES:
+            self._discipline_btns[mode_id].setText(name_es if es else name_en)
 
         self.lbl_clef.setText("Clave:" if es else "Clef:")
         self.lbl_level.setText("Nivel:" if es else "Level:")
 
         g_state = ("Sí" if es else "On") if self.score_canvas.show_guides else ("No" if es else "Off")
-        self.btn_guides.setText(f"👁 {'Guías' if es else 'Staff Guides'}: {g_state}")
-        self.btn_hint.setText("💡 Pista" if es else "💡 Hint")
-        self.btn_replay.setText("🔊 Escuchar [Espacio]" if es else "🔊 Listen [Space]")
-        self.btn_fifths.setText("🧭 Quintas" if es else "🧭 Circle of 5ths")
-        self.btn_report.setText("📜 Informe" if es else "📜 Report")
-        self.btn_reset_stats.setText("↺ Reiniciar" if es else "↺ Reset")
+        self.btn_guides.setText(f"{'Guías' if es else 'Staff Guides'}: {g_state}")
+        self.btn_hint.setText("Pista" if es else "Hint")
+        self.btn_replay.setText("Escuchar [Espacio]" if es else "Listen [Space]")
+        self.btn_fifths.setText("Quintas" if es else "Circle of 5ths")
+        self.btn_report.setText("Informe" if es else "Report")
+        self.btn_reset_stats.setText("Reiniciar" if es else "Reset")
 
         if not self._blitz_active:
-            self.btn_blitz.setText("⚡ Reto 60s" if es else "⚡ 60s Blitz")
+            self.btn_blitz.setText("Reto 60s" if es else "60s Blitz")
 
         self.lbl_dock_title.setText(
-            "🎹 Consola Instrumental Interactiva (Usa el ratón o las teclas A-L / W-O de tu teclado)"
+            "Consola Instrumental Interactiva (Usa el ratón o las teclas A-L / W-O de tu teclado)"
             if es
-            else "🎹 Interactive Instrument Console (Click or use computer keys A-L / W-O)"
+            else "Interactive Instrument Console (Click or use computer keys A-L / W-O)"
         )
-        self.btn_view_piano.setText("🎹 Piano de Cola (C3–G5)" if es else "🎹 Grand Piano (C3–G5)")
-        self.btn_view_guitar.setText("🎸 Diapasón (Trastes 0–12)" if es else "🎸 Fretboard (Frets 0–12)")
+        self.btn_view_piano.setText("Piano de Cola (C3–G5)" if es else "Grand Piano (C3–G5)")
+        self.btn_view_guitar.setText("Diapasón (Trastes 0–12)" if es else "Fretboard (Frets 0–12)")
 
         h_state = ("Sí" if es else "On") if self.piano_widget.show_helpers else ("No" if es else "Off")
-        self.btn_inst_helpers.setText(f"🔤 {'Etiquetas' if es else 'Key Labels'}: {h_state}")
+        self.btn_inst_helpers.setText(f"{'Etiquetas' if es else 'Key Labels'}: {h_state}")
 
         self._update_stats_ribbon()
 
@@ -687,7 +689,7 @@ class MusicalTrainerWindow(QMainWindow):
         c4 = NoteSpec("C", 4, 0)
         e4 = NoteSpec("E", 4, 0)
         g4 = NoteSpec("G", 4, 0)
-        self.score_canvas.set_feedback("", "🧪 LABORATORIO ACTIVO" if es else "🧪 SANDBOX ACTIVE")
+        self.score_canvas.set_feedback("", "LABORATORIO ACTIVO" if es else "SANDBOX ACTIVE")
         self.score_canvas.set_score_state(
             clef=self.curriculum.clef,
             notes=[c4, e4, g4],
@@ -699,12 +701,12 @@ class MusicalTrainerWindow(QMainWindow):
         self.fretboard_widget.set_target_fret(None)
 
         self.lbl_prompt.setText(
-            "🧪 Explorador Libre de Teoría: Toca cualquier tecla del piano, traste de guitarra o acorde inferior:"
+            "Explorador Libre de Teoría: Toca cualquier tecla del piano, traste de guitarra o estructura inferior:"
             if es
-            else "🧪 Interactive Theory Sandbox: Click any piano key, guitar fret, or chord/scale preset below:"
+            else "Interactive Theory Sandbox: Click any piano key, guitar fret, or preset below:"
         )
         self.lbl_theory_note.setText(
-            "Acorde actual: Do Mayor (Do4 - Mi4 - Sol4) • Fórmula: 1 - 3 - 5 • Haz clic en cualquier instrumento para analizar."
+            "Acorde actual: Do Mayor (Do4 - Mi4 - Sol4) • Fórmula: 1 - 3 - 5 • Toca el teclado o diapasón para analizar."
             if es
             else "Current chord: C Major (C4 - E4 - G4) • Formula: 1 - 3 - 5 • Click any key or fret to inspect."
         )
@@ -720,16 +722,16 @@ class MusicalTrainerWindow(QMainWindow):
         self._choice_btns.clear()
 
         presets: list[tuple[str, str, tuple[int, ...], str]] = [
-            ("maj", "🎹 Tríada Mayor (1-3-5)", (0, 4, 7), "chord"),
-            ("min", "🎹 Tríada Menor (1-♭3-5)", (0, 3, 7), "chord"),
-            ("dim", "🎹 Disminuido (1-♭3-♭5)", (0, 3, 6), "chord"),
-            ("maj7", "🎷 Acorde Maj7 (1-3-5-7)", (0, 4, 7, 11), "chord"),
-            ("m7", "🎷 Acorde m7 (1-♭3-5-♭7)", (0, 3, 7, 10), "chord"),
-            ("dom7", "🎷 Dominante 7 (1-3-5-♭7)", (0, 4, 7, 10), "chord"),
-            ("sc_maj", "🎼 Escala Mayor", (0, 2, 4, 5, 7, 9, 11, 12), "scale"),
-            ("sc_min", "🎼 Escala Menor Natural", (0, 2, 3, 5, 7, 8, 10, 12), "scale"),
-            ("sc_harm", "🎼 Escala Menor Armónica", (0, 2, 3, 5, 7, 8, 11, 12), "scale"),
-            ("sc_pent", "🎸 Pentatónica Menor", (0, 3, 5, 7, 10, 12), "scale"),
+            ("maj", "Tríada Mayor (1-3-5)", (0, 4, 7), "chord"),
+            ("min", "Tríada Menor (1-♭3-5)", (0, 3, 7), "chord"),
+            ("dim", "Disminuido (1-♭3-♭5)", (0, 3, 6), "chord"),
+            ("maj7", "Acorde Maj7 (1-3-5-7)", (0, 4, 7, 11), "chord"),
+            ("m7", "Acorde m7 (1-♭3-5-♭7)", (0, 3, 7, 10), "chord"),
+            ("dom7", "Dominante 7 (1-3-5-♭7)", (0, 4, 7, 10), "chord"),
+            ("sc_maj", "Escala Mayor", (0, 2, 4, 5, 7, 9, 11, 12), "scale"),
+            ("sc_min", "Escala Menor Natural", (0, 2, 3, 5, 7, 8, 10, 12), "scale"),
+            ("sc_harm", "Escala Menor Armónica", (0, 2, 3, 5, 7, 8, 11, 12), "scale"),
+            ("sc_pent", "Pentatónica Menor", (0, 3, 5, 7, 10, 12), "scale"),
         ]
         for idx, (_, label, semitones, kind) in enumerate(presets):
             btn = QPushButton(label)
@@ -768,7 +770,7 @@ class MusicalTrainerWindow(QMainWindow):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_piano_key_pressed(self, midi_val: int) -> None:
-        self.audio.play_note(midi_val)
+        self.audio.note_on(midi_val)
         ns = midi_to_note_spec(midi_val)
 
         if self.active_mode == "sandbox":
@@ -781,7 +783,7 @@ class MusicalTrainerWindow(QMainWindow):
             )
             self.piano_widget.set_highlighted_notes([midi_val])
             self.lbl_prompt.setText(
-                f"🎹 Nota seleccionada: {ns.format_name(self.curriculum.notation, include_octave=True)}"
+                f"Nota seleccionada: {ns.format_name(self.curriculum.notation, include_octave=True)}"
             )
             self.lbl_theory_note.setText(
                 f"Frecuencia fundamental: {ns.freq_hz:.2f} Hz  •  MIDI: {ns.midi}  •  "
@@ -793,8 +795,11 @@ class MusicalTrainerWindow(QMainWindow):
         if self.active_mode in ("notes", "fretboard") and self.current_question is not None:
             self._submit_answer(f"pc_{midi_val % 12}")
 
+    def _on_piano_key_released(self, midi_val: int) -> None:
+        self.audio.note_off(midi_val)
+
     def _on_guitar_fret_pressed(self, string_num: int, fret: int, midi_val: int) -> None:
-        self.audio.play_note(midi_val)
+        self.audio.note_on(midi_val)
         ns = midi_to_note_spec(midi_val)
 
         if self.active_mode == "sandbox":
@@ -807,7 +812,7 @@ class MusicalTrainerWindow(QMainWindow):
             )
             self.piano_widget.set_highlighted_notes([midi_val])
             self.lbl_prompt.setText(
-                f"🎸 Cuerda {string_num}ª • Traste {fret}  →  {ns.format_name(self.curriculum.notation, include_octave=True)}"
+                f"Cuerda {string_num}ª • Traste {fret}  →  {ns.format_name(self.curriculum.notation, include_octave=True)}"
             )
             self.lbl_theory_note.setText(
                 f"Frecuencia: {ns.freq_hz:.2f} Hz  •  MIDI: {ns.midi}  •  Equivalente resaltado en el piano y pentagrama."
@@ -817,7 +822,14 @@ class MusicalTrainerWindow(QMainWindow):
         if self.active_mode in ("fretboard", "notes") and self.current_question is not None:
             self._submit_answer(f"pc_{midi_val % 12}")
 
+    def _on_guitar_fret_released(self, string_num: int, fret: int, midi_val: int) -> None:
+        self.audio.note_off(midi_val)
+
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if event.isAutoRepeat():
+            event.accept()
+            return
+
         key = event.key()
         if key == Qt.Key.Key_Space:
             self._replay_current_audio()
@@ -830,6 +842,20 @@ class MusicalTrainerWindow(QMainWindow):
             event.accept()
             return
         super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if event.isAutoRepeat():
+            event.accept()
+            return
+
+        key = event.key()
+        if key in self.PC_KEY_TO_MIDI:
+            midi_val = self.PC_KEY_TO_MIDI[key]
+            self.piano_widget.unflash_key(midi_val)
+            self._on_piano_key_released(midi_val)
+            event.accept()
+            return
+        super().keyReleaseEvent(event)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Audio, Metrónomo, Reto 60s y Diálogos
@@ -949,7 +975,7 @@ class MusicalTrainerWindow(QMainWindow):
             self._on_metronome_tick()
         else:
             self._metro_timer.stop()
-            self.btn_metro.setText("⏱ Metrónomo" if self.lang == "es" else "⏱ Metronome")
+            self.btn_metro.setText("Metrónomo" if self.lang == "es" else "Metronome")
         self._apply_theme()
 
     def _on_bpm_changed(self, bpm: int) -> None:
@@ -960,7 +986,7 @@ class MusicalTrainerWindow(QMainWindow):
         is_accent = (self._metro_beat % 4 == 0)
         self.audio.play_metronome_click(accent=is_accent)
         dots = ["● ○ ○ ○", "○ ● ○ ○", "○ ○ ● ○", "○ ○ ○ ●"][self._metro_beat % 4]
-        self.btn_metro.setText(f"⏱ {dots}")
+        self.btn_metro.setText(f"Metro: {dots}")
         self._metro_beat += 1
 
     def _toggle_blitz_mode(self) -> None:
@@ -977,7 +1003,7 @@ class MusicalTrainerWindow(QMainWindow):
         self._blitz_active = True
         self._blitz_seconds_left = 60
         self._blitz_score = 0
-        self.btn_blitz.setText(f"⚡ 60s ({self._blitz_score} pts)")
+        self.btn_blitz.setText(f"60s ({self._blitz_score} pts)")
         self._apply_theme()
         self._blitz_timer.start()
         self._load_next_question()
@@ -988,14 +1014,14 @@ class MusicalTrainerWindow(QMainWindow):
             self._blitz_timer.stop()
             self._blitz_active = False
             es = (self.lang == "es")
-            self.btn_blitz.setText("⚡ Reto 60s" if es else "⚡ 60s Blitz")
+            self.btn_blitz.setText("Reto 60s" if es else "60s Blitz")
             self._apply_theme()
             self.score_canvas.set_feedback(
                 "correct",
-                f"🏆 {'¡Fin del Reto 60s!' if es else '60s Blitz Complete!'} — {self._blitz_score} {'aciertos' if es else 'correct'}",
+                f"{'¡Fin del Reto 60s!' if es else '60s Blitz Complete!'} — {self._blitz_score} {'aciertos' if es else 'correct'}",
             )
         else:
-            self.btn_blitz.setText(f"⚡ {self._blitz_seconds_left}s ({self._blitz_score} pts)")
+            self.btn_blitz.setText(f"{self._blitz_seconds_left}s ({self._blitz_score} pts)")
 
     def _open_circle_of_fifths(self) -> None:
         t = THEMES.get(self.theme_id, THEMES["parchment"])
@@ -1021,19 +1047,19 @@ class MusicalTrainerWindow(QMainWindow):
         es = (self.lang == "es")
         c = self.curriculum
         self.lbl_stat_score.setText(
-            f"✓ {'Aciertos' if es else 'Score'}: {c.total_correct}/{c.total_answered} ({c.accuracy_pct:.0f}%)"
+            f"{'Aciertos' if es else 'Score'}: {c.total_correct}/{c.total_answered} ({c.accuracy_pct:.0f}%)"
         )
         self.lbl_stat_streak.setText(
-            f"🔥 {'Racha' if es else 'Streak'}: {c.current_streak} ({'Máx' if es else 'Best'}: {c.best_streak})"
+            f"{'Racha' if es else 'Streak'}: {c.current_streak} ({'Máx' if es else 'Best'}: {c.best_streak})"
         )
         self.lbl_stat_speed.setText(
-            f"⏱ {'Velocidad' if es else 'Avg Speed'}: {c.avg_response_ms} ms"
+            f"{'Velocidad' if es else 'Avg Speed'}: {c.avg_response_ms} ms"
         )
         weak = c.get_weakest_items(3)
         if weak:
             w_txt = ", ".join(x[0] for x in weak)
-            self.lbl_stat_weak.setText(f"🎯 {'Reforzar' if es else 'Focus'}: {w_txt}")
+            self.lbl_stat_weak.setText(f"{'Reforzar' if es else 'Focus'}: {w_txt}")
         else:
             self.lbl_stat_weak.setText(
-                "🎯 Adaptativo: Equilibrado" if es else "🎯 Adaptive: Balanced"
+                "Adaptativo: Equilibrado" if es else "Adaptive: Balanced"
             )

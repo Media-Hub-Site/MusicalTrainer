@@ -1,22 +1,23 @@
 """
 core/audio_engine.py
 ────────────────────
-Motor de síntesis acústica polifónica en tiempo real para MusicalTrainer.
-Genera ondas WAV PCM estéreo de 16 bits con tres timbres de conservatorio:
-  1. 'piano'  — Piano de Cola Steinway (armónicos inarmónicos, ataque de martillo y caja de resonancia).
-  2. 'rhodes' — Piano Eléctrico Vintage (campana FM suave + chorus cálido).
-  3. 'guitar' — Guitarra / Arpa de Concierto (cuerda pulsada con resonancia de madera).
-Incluye caché en directorio temporal y reproducción asíncrona no bloqueante.
+Motor de audio de alta fidelidad para MusicalTrainer.
+Proporciona dos capas de reproducción de sonido:
+  1. WinMM Native General MIDI Synthesizer (Zero-latency, SoundFont de alta fidelidad de Windows,
+     polifonía completa, y soporte real de Note-On y Note-Off para sustain/release natural).
+  2. Sintetizador PCM estéreo de respaldo en caso de plataformas sin driver MIDI.
 """
 
 from __future__ import annotations
 
+import ctypes
 import hashlib
 import math
 import os
 import struct
 import tempfile
 import threading
+import time
 import wave
 from typing import Sequence
 
@@ -27,192 +28,171 @@ def midi_to_freq(midi_note: int) -> float:
 
 
 class ConservatoryAudioEngine:
-    """Sintetizador polifónico ligero sin dependencias externas pesadas."""
+    """Motor polifónico con soporte para Note-On / Note-Off y timbres orquestales."""
 
     SAMPLE_RATE = 22050
 
+    # Programas MIDI de General MIDI para máxima fidelidad
+    MIDI_PROGRAMS = {
+        "piano": 0,    # Acoustic Grand Piano (Yamaha / Steinway D)
+        "rhodes": 4,   # Electric Piano 1 (Rhodes Vintage)
+        "guitar": 24,  # Acoustic Guitar (Nylon / Classical Concert)
+        "strings": 48, # String Ensemble 1 (Cuerdas de conservatorio)
+    }
+
     def __init__(self) -> None:
         self.enabled: bool = True
-        self.timbre: str = "piano"  # 'piano' | 'rhodes' | 'guitar'
-        self.volume: float = 0.78
+        self._timbre: str = "piano"
+        self.volume: float = 0.85
         self._cache_dir = os.path.join(tempfile.gettempdir(), "mediahub_musicaltrainer_audio")
         os.makedirs(self._cache_dir, exist_ok=True)
         self._lock = threading.Lock()
 
-    def _voice_sample(self, freq: float, t: float, dur: float, timbre: str) -> tuple[float, float]:
-        """Calcula una muestra estéreo (L, R) para una nota a frecuencia `freq` en instante `t`."""
-        if t < 0.0 or t > dur:
-            return 0.0, 0.0
+        # WinMM MIDI Handle
+        self._midi_handle: ctypes.c_void_p | None = None
+        self._winmm = None
+        self._active_midi_notes: set[int] = set()
+        self._note_timers: dict[int, threading.Timer] = {}
 
-        two_pi_f = 2.0 * math.pi * freq
+        self._init_midi_device()
 
-        if timbre == "rhodes":
-            attack = min(1.0, t / 0.006)
-            decay = math.exp(-2.1 * t)
-            bell = math.exp(-14.0 * t) * 0.42 * math.sin(two_pi_f * 7.0 * t)
-            mod = 0.35 * math.exp(-4.5 * t) * math.sin(two_pi_f * 2.0 * t)
-            core = math.sin(two_pi_f * t + mod) + 0.22 * math.sin(two_pi_f * 3.0 * t)
-            trem_l = 1.0 + 0.08 * math.sin(2.0 * math.pi * 4.2 * t)
-            trem_r = 1.0 - 0.08 * math.sin(2.0 * math.pi * 4.2 * t)
-            tail = max(0.0, min(1.0, (dur - t) / 0.04))
-            val = attack * decay * tail * (core + bell)
-            return val * trem_l, val * trem_r
+    @property
+    def timbre(self) -> str:
+        return self._timbre
 
-        if timbre == "guitar":
-            attack = min(1.0, t / 0.003)
-            tail = max(0.0, min(1.0, (dur - t) / 0.035))
-            s = (
-                1.00 * math.exp(-2.6 * t) * math.sin(two_pi_f * t)
-                + 0.58 * math.exp(-4.2 * t) * math.sin(two_pi_f * 2.0 * t + 0.3)
-                + 0.34 * math.exp(-6.5 * t) * math.sin(two_pi_f * 3.0 * t + 0.7)
-                + 0.18 * math.exp(-9.5 * t) * math.sin(two_pi_f * 4.0 * t)
-                + 0.10 * math.exp(-15.0 * t) * math.sin(two_pi_f * 5.0 * t)
-            )
-            pluck = 0.16 * math.exp(-38.0 * t) * math.sin(two_pi_f * 8.5 * t)
-            val = attack * tail * (s + pluck) * 0.72
-            return val * 1.03, val * 0.97
+    @timbre.setter
+    def timbre(self, value: str) -> None:
+        self._timbre = value
+        self._apply_midi_program()
 
-        # Default: 'piano' (Concert Grand Piano)
-        attack = min(1.0, t / 0.005)
-        tail = max(0.0, min(1.0, (dur - t) / 0.045))
-        # Inharmonicity stretch factor typical of piano strings
-        b = 0.00018
-        s_l = 0.0
-        s_r = 0.0
-        weights = (1.00, 0.52, 0.28, 0.15, 0.09, 0.05)
-        decays = (1.85, 2.65, 3.60, 4.90, 6.50, 8.40)
-        for n, (w, d) in enumerate(zip(weights, decays), start=1):
-            fn = freq * n * math.sqrt(1.0 + b * (n * n))
-            if fn >= self.SAMPLE_RATE * 0.46:
-                break
-            env_n = math.exp(-d * t)
-            # Subtle stereo piano soundboard spread
-            phase_l = 2.0 * math.pi * fn * t
-            phase_r = 2.0 * math.pi * (fn * 1.0004) * t + (0.15 * n)
-            s_l += w * env_n * math.sin(phase_l)
-            s_r += w * env_n * math.sin(phase_r)
-
-        # Hammer felt transient
-        hammer = 0.14 * math.exp(-55.0 * t) * (
-            math.sin(two_pi_f * 6.2 * t) + 0.5 * math.sin(two_pi_f * 9.3 * t)
-        )
-        scale = attack * tail * 0.68
-        return (s_l + hammer) * scale, (s_r + hammer) * scale
-
-    def _render_events_to_wav(
-        self,
-        events: Sequence[tuple[int, float, float]],
-        timbre: str | None = None,
-    ) -> str:
-        """
-        Renderiza una lista de eventos `(midi_note, start_sec, duration_sec)` a un archivo WAV
-        en caché y devuelve su ruta.
-        """
-        use_timbre = timbre or self.timbre
-        sig = f"{use_timbre}|{self.volume:.2f}|" + ";".join(
-            f"{m}:{s:.3f}:{d:.3f}" for m, s, d in events
-        )
-        digest = hashlib.md5(sig.encode("utf-8")).hexdigest()[:16]
-        wav_path = os.path.join(self._cache_dir, f"mt_{digest}.wav")
-        if os.path.isfile(wav_path):
-            return wav_path
-
-        sr = self.SAMPLE_RATE
-        total_dur = max((s + d for _, s, d in events), default=0.4) + 0.04
-        num_samples = max(1, int(total_dur * sr))
-
-        buf_l = [0.0] * num_samples
-        buf_r = [0.0] * num_samples
-
-        for midi_note, start_s, dur_s in events:
-            freq = midi_to_freq(midi_note)
-            idx_start = max(0, int(start_s * sr))
-            idx_end = min(num_samples, int((start_s + dur_s) * sr))
-            for i in range(idx_start, idx_end):
-                local_t = (i - idx_start) / sr
-                vl, vr = self._voice_sample(freq, local_t, dur_s, use_timbre)
-                buf_l[i] += vl
-                buf_r[i] += vr
-
-        # Normalización suave para evitar clipping en acordes de 3-4 notas
-        peak = max(
-            max((abs(x) for x in buf_l), default=0.0),
-            max((abs(x) for x in buf_r), default=0.0),
-            1.0,
-        )
-        gain = (30000.0 * self.volume) / peak
-
-        frames = bytearray(num_samples * 4)
-        pack_into = struct.pack_into
-        for i in range(num_samples):
-            sl = int(max(-32767.0, min(32767.0, buf_l[i] * gain)))
-            sr_val = int(max(-32767.0, min(32767.0, buf_r[i] * gain)))
-            pack_into("<hh", frames, i * 4, sl, sr_val)
-
-        with self._lock:
-            if not os.path.isfile(wav_path):
-                with wave.open(wav_path, "wb") as wf:
-                    wf.setnchannels(2)
-                    wf.setsampwidth(2)
-                    wf.setframerate(sr)
-                    wf.writeframes(frames)
-
-        return wav_path
-
-    def _play_wav_async(self, wav_path: str) -> None:
-        if not self.enabled or not wav_path or not os.path.isfile(wav_path):
-            return
-
-        def _worker() -> None:
+    def _init_midi_device(self) -> None:
+        """Inicializa el sintetizador MIDI de hardware/sistema operativo."""
+        if os.name == "nt":
             try:
-                import winsound
-                winsound.PlaySound(
-                    wav_path,
-                    winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT,
-                )
+                self._winmm = ctypes.windll.winmm
+                handle = ctypes.c_void_p()
+                res = self._winmm.midiOutOpen(ctypes.byref(handle), -1, 0, 0, 0)
+                if res == 0:
+                    self._midi_handle = handle
+                    self._apply_midi_program()
+            except Exception:
+                self._midi_handle = None
+
+    def _apply_midi_program(self) -> None:
+        """Configura el instrumento seleccionado en el canal 0 del sintetizador MIDI."""
+        if self._midi_handle and self._winmm:
+            prog = self.MIDI_PROGRAMS.get(self._timbre, 0)
+            msg = 0x0000C0 | (prog << 8)  # Program Change en canal 0
+            try:
+                self._winmm.midiOutShortMsg(self._midi_handle, msg)
             except Exception:
                 pass
 
-        threading.Thread(target=_worker, daemon=True).start()
-
-    def play_note(self, midi_note: int, duration: float = 0.85) -> None:
-        """Reproduce una única nota MIDI."""
+    def note_on(self, midi_note: int, velocity: int = 100) -> None:
+        """
+        Dispara una nota sostenida (Note On).
+        Permite mantener pulsada una tecla en el teclado o piano sin re-disparos artificiales.
+        """
         if not self.enabled:
             return
-        wav_path = self._render_events_to_wav([(midi_note, 0.0, duration)])
+
+        with self._lock:
+            # Si la nota ya está activa, no volvemos a enviarla (evita efecto ametralladora)
+            if midi_note in self._active_midi_notes:
+                return
+            self._active_midi_notes.add(midi_note)
+
+            # Cancelar temporizador previo de apagado si existía
+            prev_timer = self._note_timers.pop(midi_note, None)
+            if prev_timer:
+                prev_timer.cancel()
+
+        if self._midi_handle and self._winmm:
+            vel = max(1, min(127, int(velocity * self.volume)))
+            msg = 0x90 | (midi_note << 8) | (vel << 16)
+            try:
+                self._winmm.midiOutShortMsg(self._midi_handle, msg)
+                return
+            except Exception:
+                pass
+
+        # Respaldo PCM si no hay driver MIDI
+        wav_path = self._render_events_to_wav([(midi_note, 0.0, 1.4)])
         self._play_wav_async(wav_path)
+
+    def note_off(self, midi_note: int) -> None:
+        """
+        Libera la nota sostenida (Note Off).
+        El instrumento comenzará su fase de release/apagado natural.
+        """
+        with self._lock:
+            if midi_note not in self._active_midi_notes:
+                return
+            self._active_midi_notes.discard(midi_note)
+
+        if self._midi_handle and self._winmm:
+            msg = 0x80 | (midi_note << 8) | (0 << 16)
+            try:
+                self._winmm.midiOutShortMsg(self._midi_handle, msg)
+            except Exception:
+                pass
+
+    def play_note(self, midi_note: int, duration: float = 0.95, velocity: int = 100) -> None:
+        """Toca una nota y programa automáticamente su apagado tras `duration` segundos."""
+        if not self.enabled:
+            return
+
+        # Note On inmediato
+        self.note_on(midi_note, velocity)
+
+        # Programar Note Off suave tras la duración deseada
+        def _delayed_off() -> None:
+            self.note_off(midi_note)
+
+        t = threading.Timer(duration, _delayed_off)
+        t.daemon = True
+        with self._lock:
+            old_timer = self._note_timers.get(midi_note)
+            if old_timer:
+                old_timer.cancel()
+            self._note_timers[midi_note] = t
+        t.start()
 
     def play_chord(
         self,
         midi_notes: Sequence[int],
-        duration: float = 1.15,
+        duration: float = 1.35,
         arpeggiate: bool = True,
-        arp_step: float = 0.065,
+        arp_step: float = 0.055,
     ) -> None:
-        """Reproduce un acorde (simultáneo o con arpegio suave de conservatorio)."""
+        """Reproduce un acorde orquestal polifónico (simultáneo o arpegiado)."""
         if not self.enabled or not midi_notes:
             return
-        events: list[tuple[int, float, float]] = []
-        for idx, m in enumerate(midi_notes):
-            delay = (idx * arp_step) if arpeggiate else 0.0
-            events.append((int(m), delay, duration))
-        wav_path = self._render_events_to_wav(events)
-        self._play_wav_async(wav_path)
+
+        def _chord_worker() -> None:
+            for idx, m in enumerate(midi_notes):
+                self.play_note(m, duration=duration, velocity=98)
+                if arpeggiate and idx < len(midi_notes) - 1:
+                    time.sleep(arp_step)
+
+        threading.Thread(target=_chord_worker, daemon=True).start()
 
     def play_sequence(
         self,
         midi_notes: Sequence[int],
-        step_delay: float = 0.34,
-        note_duration: float = 0.52,
+        step_delay: float = 0.30,
+        note_duration: float = 0.45,
     ) -> None:
-        """Reproduce una secuencia melódica (intervalos melódicos o escalas completas)."""
+        """Reproduce una escala o secuencia melódica."""
         if not self.enabled or not midi_notes:
             return
-        events: list[tuple[int, float, float]] = []
-        for idx, m in enumerate(midi_notes):
-            events.append((int(m), idx * step_delay, note_duration))
-        wav_path = self._render_events_to_wav(events)
-        self._play_wav_async(wav_path)
+
+        def _seq_worker() -> None:
+            for m in midi_notes:
+                self.play_note(m, duration=note_duration, velocity=95)
+                time.sleep(step_delay)
+
+        threading.Thread(target=_seq_worker, daemon=True).start()
 
     def play_interval(
         self,
@@ -220,45 +200,53 @@ class ConservatoryAudioEngine:
         midi_high: int,
         mode: str = "melodic_asc",
     ) -> None:
-        """
-        Reproduce un intervalo en uno de tres modos:
-        - 'melodic_asc': nota grave -> nota aguda -> ambas juntas suaves
-        - 'melodic_desc': nota aguda -> nota grave -> ambas juntas suaves
-        - 'harmonic': ambas notas simultáneas
-        """
+        """Reproduce un intervalo melódico o armónico."""
         if not self.enabled:
             return
+
         if mode == "harmonic":
-            events = [(midi_low, 0.0, 1.15), (midi_high, 0.0, 1.15)]
+            self.play_chord([midi_low, midi_high], duration=1.2, arpeggiate=False)
         elif mode == "melodic_desc":
-            events = [
-                (midi_high, 0.0, 0.48),
-                (midi_low, 0.42, 0.52),
-                (midi_low, 0.96, 0.85),
-                (midi_high, 0.96, 0.85),
-            ]
+            def _desc():
+                self.play_note(midi_high, duration=0.45)
+                time.sleep(0.40)
+                self.play_note(midi_low, duration=0.50)
+                time.sleep(0.48)
+                self.play_chord([midi_low, midi_high], duration=0.90, arpeggiate=False)
+            threading.Thread(target=_desc, daemon=True).start()
         else:
-            events = [
-                (midi_low, 0.0, 0.48),
-                (midi_high, 0.42, 0.52),
-                (midi_low, 0.96, 0.85),
-                (midi_high, 0.96, 0.85),
-            ]
-        wav_path = self._render_events_to_wav(events)
-        self._play_wav_async(wav_path)
+            def _asc():
+                self.play_note(midi_low, duration=0.45)
+                time.sleep(0.40)
+                self.play_note(midi_high, duration=0.50)
+                time.sleep(0.48)
+                self.play_chord([midi_low, midi_high], duration=0.90, arpeggiate=False)
+            threading.Thread(target=_asc, daemon=True).start()
 
     def play_error_cue(self) -> None:
-        """Pequeño toque grave sutil cuando se falla una respuesta."""
+        """Toque sutil de error."""
         if not self.enabled:
             return
-        events = [(48, 0.0, 0.16), (47, 0.11, 0.22)]
-        wav_path = self._render_events_to_wav(events, timbre="rhodes")
-        self._play_wav_async(wav_path)
+        def _err():
+            self.play_note(48, duration=0.15, velocity=85)
+            time.sleep(0.12)
+            self.play_note(47, duration=0.20, velocity=80)
+        threading.Thread(target=_err, daemon=True).start()
 
     def play_metronome_click(self, accent: bool = False) -> None:
-        """Pulso acústico tipo metrónomo mecánico Wittner (bloque de madera)."""
+        """Pulso acústico tipo metrónomo de madera."""
         if not self.enabled:
             return
+        # MIDI Woodblock (GM Program 115) o Side Stick (Note 31 / 37 en canal 9 percusión)
+        if self._midi_handle and self._winmm:
+            try:
+                note = 76 if accent else 77  # Wood Blocks Hi / Low (General MIDI Drum channel 9)
+                msg = 0x99 | (note << 8) | (115 << 16)
+                self._winmm.midiOutShortMsg(self._midi_handle, msg)
+                return
+            except Exception:
+                pass
+
         wav_name = "metro_hi.wav" if accent else "metro_lo.wav"
         wav_path = os.path.join(self._cache_dir, wav_name)
         if not os.path.isfile(wav_path):
@@ -284,3 +272,107 @@ class ConservatoryAudioEngine:
                         wf.setframerate(sr)
                         wf.writeframes(frames)
         self._play_wav_async(wav_path)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Respaldo PCM sintetizado
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _voice_sample(self, freq: float, t: float, dur: float, timbre: str) -> tuple[float, float]:
+        if t < 0.0 or t > dur:
+            return 0.0, 0.0
+        two_pi_f = 2.0 * math.pi * freq
+        attack = min(1.0, t / 0.005)
+        tail = max(0.0, min(1.0, (dur - t) / 0.05))
+        b = 0.00018
+        s_l = 0.0
+        s_r = 0.0
+        weights = (1.00, 0.52, 0.28, 0.15, 0.09, 0.05)
+        decays = (1.85, 2.65, 3.60, 4.90, 6.50, 8.40)
+        for n, (w, d) in enumerate(zip(weights, decays), start=1):
+            fn = freq * n * math.sqrt(1.0 + b * (n * n))
+            if fn >= self.SAMPLE_RATE * 0.46:
+                break
+            env_n = math.exp(-d * t)
+            phase_l = 2.0 * math.pi * fn * t
+            phase_r = 2.0 * math.pi * (fn * 1.0004) * t + (0.15 * n)
+            s_l += w * env_n * math.sin(phase_l)
+            s_r += w * env_n * math.sin(phase_r)
+        scale = attack * tail * 0.72
+        return s_l * scale, s_r * scale
+
+    def _render_events_to_wav(self, events: Sequence[tuple[int, float, float]]) -> str:
+        sig = f"{self._timbre}|{self.volume:.2f}|" + ";".join(
+            f"{m}:{s:.3f}:{d:.3f}" for m, s, d in events
+        )
+        digest = hashlib.md5(sig.encode("utf-8")).hexdigest()[:16]
+        wav_path = os.path.join(self._cache_dir, f"mt_{digest}.wav")
+        if os.path.isfile(wav_path):
+            return wav_path
+
+        sr = self.SAMPLE_RATE
+        total_dur = max((s + d for _, s, d in events), default=0.4) + 0.04
+        num_samples = max(1, int(total_dur * sr))
+        buf_l = [0.0] * num_samples
+        buf_r = [0.0] * num_samples
+
+        for midi_note, start_s, dur_s in events:
+            freq = midi_to_freq(midi_note)
+            idx_start = max(0, int(start_s * sr))
+            idx_end = min(num_samples, int((start_s + dur_s) * sr))
+            for i in range(idx_start, idx_end):
+                local_t = (i - idx_start) / sr
+                vl, vr = self._voice_sample(freq, local_t, dur_s, self._timbre)
+                buf_l[i] += vl
+                buf_r[i] += vr
+
+        peak = max(
+            max((abs(x) for x in buf_l), default=0.0),
+            max((abs(x) for x in buf_r), default=0.0),
+            1.0,
+        )
+        gain = (30000.0 * self.volume) / peak
+        frames = bytearray(num_samples * 4)
+        pack_into = struct.pack_into
+        for i in range(num_samples):
+            sl = int(max(-32767.0, min(32767.0, buf_l[i] * gain)))
+            sr_val = int(max(-32767.0, min(32767.0, buf_r[i] * gain)))
+            pack_into("<hh", frames, i * 4, sl, sr_val)
+
+        with self._lock:
+            if not os.path.isfile(wav_path):
+                with wave.open(wav_path, "wb") as wf:
+                    wf.setnchannels(2)
+                    wf.setsampwidth(2)
+                    wf.setframerate(sr)
+                    wf.writeframes(frames)
+        return wav_path
+
+    def _play_wav_async(self, wav_path: str) -> None:
+        if not self.enabled or not wav_path or not os.path.isfile(wav_path):
+            return
+        def _worker() -> None:
+            try:
+                import winsound
+                winsound.PlaySound(
+                    wav_path,
+                    winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT,
+                )
+            except Exception:
+                pass
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def close(self) -> None:
+        """Cierra el sintetizador MIDI al salir."""
+        with self._lock:
+            for t in self._note_timers.values():
+                t.cancel()
+            self._note_timers.clear()
+            self._active_midi_notes.clear()
+
+        if self._midi_handle and self._winmm:
+            try:
+                self._winmm.midiOutReset(self._midi_handle)
+                self._winmm.midiOutClose(self._midi_handle)
+            except Exception:
+                pass
+            self._midi_handle = None
