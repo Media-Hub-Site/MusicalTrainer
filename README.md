@@ -1,4 +1,4 @@
-# 🎼 MediaHub • MusicalTrainer (Conservatorio Interactivo & Luthier Studio)
+# MusicalTrainer
 
 **MusicalTrainer** es el conservatorio interactivo de lectura de partituras, teoría musical, instrumentos y entrenamiento auditivo del ecosistema **Media Hub**.
 
@@ -6,7 +6,7 @@ Reimagina y moderniza por completo los entrenadores clásicos de teoría musical
 
 ---
 
-## ✨ Disciplinas y Módulos Incluidos
+## Disciplinas y Módulos Incluidos
 
 1. **🎼 Lectura de Partitura (`Note Trainer`)**
    - Soporte nativo para **Clave de Sol (2ª)**, **Clave de Fa (4ª)**, **Clave de Do en 3ª (Alto)**, **Clave de Do en 4ª (Tenor)** y **Gran Pentagrama (Sol + Fa)**.
@@ -28,7 +28,7 @@ Reimagina y moderniza por completo los entrenadores clásicos de teoría musical
 
 ---
 
-## 🎨 Características Distintivas
+## Características Distintivas
 
 - **Nomenclatura Triple Instantánea:** Alterna en cualquier momento entre **Dual (`Do · C`)**, **Solfeo Latino (`Do, Re, Mi`)** y **Cifrado Americano (`C, D, E`)**.
 - **3 Timbres Acústicos Sintetizados:** Piano de Cola Steinway, Rhodes Eléctrico Vintage y Guitarra/Arpa Acústica (100% nativo en Python sin dependencias pesadas).
@@ -38,7 +38,7 @@ Reimagina y moderniza por completo los entrenadores clásicos de teoría musical
 
 ---
 
-## 🚀 Ejecución en Desarrollo
+## Ejecución en Desarrollo
 
 ```bash
 pip install -r requirements.txt
