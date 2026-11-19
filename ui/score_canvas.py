@@ -578,6 +578,11 @@ class PianoKeyboardWidget(QWidget):
         self.pressed_midi = midi_val
         self.update()
 
+    def unflash_key(self, midi_val: int) -> None:
+        if self.pressed_midi == midi_val:
+            self.pressed_midi = None
+            self.update()
+
     def _rebuild_geometry(self) -> None:
         w = float(self.width())
         h = float(self.height())
