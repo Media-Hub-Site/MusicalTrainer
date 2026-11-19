@@ -1,0 +1,15 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller / distribution
+build/
+dist/
+*.egg-info/
+
+# Local legacy backup & OS metadata
+_legacy_flash_backup/
+desktop.ini
+.DS_Store
+*.lnk
